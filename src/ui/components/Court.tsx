@@ -79,6 +79,8 @@ export interface CourtProps {
   labels?: 'words' | 'short';
   /** Show each player's rotational position number on their marker. */
   zoneBadges?: boolean;
+  /** Who is touching the ball right now — ringed and labelled ("Receiving", "Setting"…). */
+  contacts?: { side: Side; id: string; label: string }[];
   /** Short speech bubbles (e.g. "Mine!") above players. */
   bubbles?: { id: string; text: string; side?: Side }[];
 }
@@ -591,13 +593,37 @@ export function Court(props: CourtProps) {
             );
           })}
 
+          {/* ball contacts: who is serving / receiving / setting / attacking */}
+          {props.contacts?.map((c) => {
+            const lp = c.side === 'home' ? homeT.pos[c.id] : awayT.pos[c.id];
+            if (!lp) return null;
+            const p = toWorld(c.side, lp);
+            const me = c.side === 'home' && c.id === props.meId;
+            const r = c.side === 'home' ? 0.6 : 0.52;
+            const up = c.side === 'home' ? (me ? 1.5 : 1.02) : 0.92;
+            const w = c.label.length * 0.15 + 0.55;
+            return (
+              <g key={c.side + c.id + c.label} pointerEvents="none">
+                <circle cx={p.x} cy={p.y} r={r * k} fill="none" stroke="#22d3ee" strokeWidth={0.08} strokeDasharray="0.22 0.12" className={playback.reduced ? undefined : 'vq-dash'} />
+                <g transform={`translate(${p.x} ${p.y - up * k}) scale(${k})`}>
+                  <rect x={-w / 2} y={-0.2} width={w} height={0.38} rx={0.19} fill="#22d3ee" filter="url(#vq-shadow)" />
+                  <circle cx={-w / 2 + 0.2} cy={-0.01} r={0.08} fill="#0b1220" />
+                  <text x={0.08} y={0.07} textAnchor="middle" fontSize={0.22} fontWeight={800} fill="#0b1220">
+                    {c.label}
+                  </text>
+                </g>
+              </g>
+            );
+          })}
+
           {/* speech bubbles */}
           {props.bubbles?.map((b, i) => {
             const lp = (b.side ?? 'home') === 'home' ? homeT.pos[b.id] : awayT.pos[b.id];
             if (!lp) return null;
             const p = toWorld(b.side ?? 'home', lp);
             const w = Math.max(0.9, b.text.length * 0.15 + 0.35);
-            const up = (b.side ?? 'home') === 'home' && b.id === props.meId ? 1.75 : 1.05;
+            const tagged = props.contacts?.some((c) => c.id === b.id && c.side === (b.side ?? 'home'));
+            const up = ((b.side ?? 'home') === 'home' && b.id === props.meId ? 1.75 : 1.05) + (tagged ? 0.5 : 0);
             return (
               <g key={b.id + i} transform={`translate(${p.x} ${p.y - up * k}) scale(${k})`} pointerEvents="none" className="vq-pop">
                 <rect x={-w / 2} y={-0.24} width={w} height={0.44} rx={0.2} fill="#ffffff" filter="url(#vq-shadow)" />

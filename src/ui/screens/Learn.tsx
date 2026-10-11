@@ -9,6 +9,7 @@ import { usePhone } from '../hooks';
 import { focusFromRole, useStore } from '../store';
 import { lessonConfig, mistakeConfig } from './sessions';
 import type { Zone } from '../../engine/geometry';
+import type { Role } from '../../engine/types';
 
 export function LearnScreen() {
   const { back, go, progress } = useStore();
@@ -64,7 +65,7 @@ const DEMO_CYCLES: Record<DemoKind, LessonScene> = {
 
 const phaseLabel = (p: string) => DEMO_PHASES.find((d) => d.id === p)?.label ?? p;
 
-function LessonDemo({ scene, onZone }: { scene: LessonScene; onZone: (z: Zone) => void }) {
+function LessonDemo({ scene, onZone, meRole }: { scene: LessonScene; onZone: (z: Zone) => void; meRole?: Role }) {
   const { reduced } = useStore();
   const phone = usePhone();
   const [i, setI] = useState(0);
@@ -96,6 +97,7 @@ function LessonDemo({ scene, onZone }: { scene: LessonScene; onZone: (z: Zone) =
         trails
         extraOverlays={{ zoneHighlight: scene.highlightFront ? [2, 3, 4] : undefined, feet: scene.feet }}
         onZoneTap={(side, z) => side === 'home' && onZone(z)}
+        meRole={meRole}
       />
       {cycles && (
         <div className="mt-2 flex justify-center gap-2">
@@ -193,6 +195,66 @@ export function MistakesScreen() {
             </Button>
           </Card>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** A lesson card opened on top of another screen (e.g. from simulator feedback) — closing returns to where you were. */
+export function LessonPeek({ lessonId, cardId, onClose, meRole }: { lessonId: string; cardId: string; onClose: () => void; meRole?: Role }) {
+  const level = CURRICULUM.find((l) => l.lessons.some((x) => x.id === lessonId))!;
+  const lesson = level.lessons.find((l) => l.id === lessonId)!;
+  const [i, setI] = useState(() => Math.max(0, lesson.cards.findIndex((c) => c.id === cardId)));
+  const [zone, setZone] = useState<Zone | null>(null);
+  const c = lesson.cards[i];
+  const scene = c.scene ?? (c.demo ? DEMO_CYCLES[c.demo] : { phases: ['receive'] as LessonScene['phases'] });
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/75 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={`Learn: ${c.title}`}>
+      <div className="vq-pop max-h-[92vh] w-full max-w-4xl overflow-auto rounded-t-3xl bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] ring-1 ring-white/15 sm:rounded-3xl sm:p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-300/15 text-amber-300">
+            <Icon name="book" className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-bold tracking-wider text-amber-300 uppercase">Learn · Level {level.n} · {lesson.title}</div>
+            <h2 className="font-display text-lg leading-tight font-bold text-white sm:text-xl">{c.title}</h2>
+          </div>
+          <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl bg-white/8 text-slate-300 hover:text-white" aria-label="Close">
+            <Icon name="x" className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="rounded-2xl bg-slate-950/50 p-2">
+            <LessonDemo key={`${lessonId}-${i}`} scene={scene} onZone={setZone} meRole={meRole} />
+          </div>
+          <div className="space-y-3">
+            {c.body && <p className="leading-relaxed text-slate-300">{c.body}</p>}
+            {c.what && <TheoryBlock label="What" text={c.what} tone="amber" />}
+            {c.why && <TheoryBlock label="Why" text={c.why} tone="sky" />}
+            {c.when && <TheoryBlock label="When" text={c.when} tone="emerald" />}
+            {c.cue && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-300/10 p-3 text-sm font-semibold text-amber-100">
+                <Icon name="spark" className="h-4 w-4 shrink-0 text-amber-300" /> {c.cue}
+              </div>
+            )}
+            {zone && <ZonePanel side="home" zone={zone} onClose={() => setZone(null)} />}
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {lesson.cards.length > 1 && (
+            <>
+              <Button size="sm" variant="ghost" icon="back" disabled={i === 0} onClick={() => setI((x) => x - 1)}>Previous</Button>
+              <span className="text-xs text-slate-500">{i + 1} / {lesson.cards.length}</span>
+              <Button size="sm" variant="ghost" icon="right" disabled={i === lesson.cards.length - 1} onClick={() => setI((x) => x + 1)}>Next idea</Button>
+            </>
+          )}
+          <Button variant="primary" className="ml-auto" icon="play" onClick={onClose}>Back to the game</Button>
+        </div>
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ import { playerInfo, PlayerPanel, TooltipCard, ZonePanel } from './InfoPanel';
 import { Bar, Button, Collapsible, Icon, Pill, Segmented, VerdictBadge } from './ui';
 import { CourtLegend, YouCard } from './YouCard';
 import { usePhone } from '../hooks';
+import { learnLinkFor, type LearnLink } from '../learnLinks';
+import { LessonPeek } from '../screens/Learn';
 
 export interface StepResult {
   score: number;
@@ -68,6 +70,7 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
   const [userSnapshot, setUserSnapshot] = useState<Record<string, Vec> | null>(null);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [learn, setLearn] = useState<LearnLink | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(timerSec ?? null);
   const [phaseCaption, setPhaseCaption] = useState(sc.scene.caption);
   const checkedRef = useRef(false);
@@ -297,6 +300,7 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pb-24 lg:grid-cols-[minmax(0,1fr)_380px] lg:pb-0">
+      {learn && <LessonPeek lessonId={learn.lessonId} cardId={learn.cardId} onClose={() => setLearn(null)} meRole={meId ? playerById(home.team, meId).role : undefined} />}
       {mobileBar && <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-white/10 bg-slate-950/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">{mobileBar}</div>}
       {/* Court column */}
       <div className="min-w-0">
@@ -354,6 +358,7 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
             playback={playback}
             focusIds={meId ? [] : sc.focusIds}
             meId={meId}
+            contacts={stage === 'after' ? undefined : sc.scene.contacts}
             labels={settings.labels}
             zoneBadges={settings.zoneBadges}
             tooltip={tooltip}
@@ -438,7 +443,7 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
             </div>
           )}
 
-          {sc.kind === 'place' && ev && (stage === 'checked' || stage === 'after') && <Feedback ev={ev} explanation={sc.explanation} whenChanges={sc.whenChanges} />}
+          {sc.kind === 'place' && ev && (stage === 'checked' || stage === 'after') && <Feedback ev={ev} explanation={sc.explanation} whenChanges={sc.whenChanges} learnLink={learnLinkFor(sc, ev, meId)} onLearn={setLearn} />}
           {sc.kind === 'choice' && picked && sc.whenChanges && <Collapsible title="When would this change?">{sc.whenChanges}</Collapsible>}
 
           {(stage === 'checked' || stage === 'after') && (
@@ -489,7 +494,7 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
   );
 }
 
-function Feedback({ ev, explanation, whenChanges }: { ev: Evaluation; explanation: string; whenChanges?: string }) {
+function Feedback({ ev, explanation, whenChanges, learnLink, onLearn }: { ev: Evaluation; explanation: string; whenChanges?: string; learnLink?: LearnLink | null; onLearn?: (l: LearnLink) => void }) {
   const dims = (Object.keys(ev.dims) as Dimension[]).filter((d) => ev.dims[d] !== undefined);
   const key = ev.messages.slice(0, ev.violations.length ? Math.min(2, ev.violations.length) : 1);
   const rest = ev.messages.slice(key.length);
@@ -506,6 +511,18 @@ function Feedback({ ev, explanation, whenChanges }: { ev: Evaluation; explanatio
           {m}
         </p>
       ))}
+      {learnLink && onLearn && (
+        <button
+          onClick={() => onLearn(learnLink)}
+          className={`flex w-full items-center gap-2 rounded-xl p-2.5 text-left text-sm ring-1 transition ${ev.verdict === 'weak' || ev.verdict === 'illegal' ? 'bg-amber-300/15 text-amber-50 ring-amber-300/40 hover:bg-amber-300/25' : 'bg-white/5 text-slate-200 ring-white/10 hover:bg-white/10'}`}
+        >
+          <Icon name="book" className="h-4 w-4 shrink-0 text-amber-300" />
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold">{ev.verdict === 'weak' || ev.verdict === 'illegal' ? 'Learn why' : 'Learn more'}:</span> {learnLink.title}
+          </span>
+          <Icon name="right" className="h-4 w-4 shrink-0 text-slate-400" />
+        </button>
+      )}
       {explanation && (
         <Collapsible title="Why?">
           <div className="whitespace-pre-line">{explanation}</div>

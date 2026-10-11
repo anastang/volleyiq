@@ -8,6 +8,8 @@ import { rotationalSpot, type PlaceScenario } from '../../engine/scenarios';
 import { activeSetterId, playerById, roleWord } from '../../engine/systems';
 import { Court, courtStyle, type CourtOverlays } from '../components/Court';
 import { usePhone } from '../hooks';
+import { learnLinkFor, type LearnLink } from '../learnLinks';
+import { LessonPeek } from './Learn';
 import { Button, Card, Icon, ScreenHeader, Segmented, Toggle } from '../components/ui';
 import { CourtLegend, YouCard } from '../components/YouCard';
 import { ROLE_CHOICES, useStore, type RoleChoice } from '../store';
@@ -119,6 +121,7 @@ export function GameSimScreen() {
   const [replayFrom, setReplayFrom] = useState<Record<string, Vec> | undefined>(undefined);
   const [slow, setSlow] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [learn, setLearn] = useState<LearnLink | null>(null);
   const phone = usePhone();
   const view = phone ? 'half' : 'full';
 
@@ -330,6 +333,7 @@ export function GameSimScreen() {
 
   return (
     <div className="mx-auto max-w-6xl pb-56 lg:pb-16">
+      {learn && <LessonPeek lessonId={learn.lessonId} cardId={learn.cardId} onClose={() => setLearn(null)} meRole={role === 'ALL' ? undefined : role} />}
       <ScreenHeader title="Game Simulator" onBack={back} />
       <div className="px-4 sm:px-6">
         {/* Scoreboard */}
@@ -376,11 +380,12 @@ export function GameSimScreen() {
                   selectedId={stage === 'move' ? meId : null}
                   onMove={(id, p) => setPositions((x) => ({ ...x, [id]: p }))}
                   overlays={overlays}
-                  playback={{ speed: slow ? speed * 0.5 : speed, paused: why || paused, reduced }}
+                  playback={{ speed: slow ? speed * 0.5 : speed, paused: why || paused || !!learn, reduced }}
                   meId={meId}
                   labels={settings.labels}
                   zoneBadges={settings.zoneBadges}
                   bubbles={bubbles}
+                  contacts={sc.scene.contacts}
                   view={view}
                 />
                 {(stage === 'move' || stage === 'result') && sc.scene.ball.length > 0 && (
@@ -456,6 +461,23 @@ export function GameSimScreen() {
               <Card className={`vq-pop space-y-2 p-3 shadow-2xl ring-2 lg:p-4 ${line.tone === 'good' ? 'ring-emerald-300/50' : line.tone === 'ok' ? 'ring-sky-300/50' : line.tone === 'bad' ? 'ring-amber-300/50' : 'ring-rose-400/60'}`}>
                 <p className={`font-display text-lg font-bold ${line.tone === 'good' ? 'text-emerald-200' : line.tone === 'ok' ? 'text-sky-200' : line.tone === 'bad' ? 'text-amber-200' : 'text-rose-200'}`}>{line.title}</p>
                 {line.text && <p className="text-sm text-slate-200">{line.text}</p>}
+                {(() => {
+                  const l = sc && ev && meId ? learnLinkFor(sc, ev, meId) : null;
+                  if (!l) return null;
+                  const strong = line.tone === 'bad' || line.tone === 'foul';
+                  return (
+                    <button
+                      onClick={() => setLearn(l)}
+                      className={`flex w-full items-center gap-2 rounded-xl p-2.5 text-left text-sm ring-1 transition ${strong ? 'bg-amber-300/15 text-amber-50 ring-amber-300/40 hover:bg-amber-300/25' : 'bg-white/5 text-slate-200 ring-white/10 hover:bg-white/10'}`}
+                    >
+                      <Icon name="book" className="h-4 w-4 shrink-0 text-amber-300" />
+                      <span className="min-w-0 flex-1">
+                        <span className="font-semibold">{strong ? 'Learn why' : 'Learn more'}:</span> {l.title}
+                      </span>
+                      <Icon name="right" className="h-4 w-4 shrink-0 text-slate-400" />
+                    </button>
+                  );
+                })()}
                 {why && sc && <p className="rounded-lg bg-white/5 p-2 text-xs whitespace-pre-line text-slate-300">{sc.explanation}</p>}
                 <div className="flex flex-wrap gap-2">
                   {!why && <Button size="sm" variant="ghost" icon="info" onClick={() => setWhy(true)}>Why?</Button>}

@@ -116,6 +116,14 @@ export interface Scene {
   phase: Phase;
   caption: string;
   overlays?: SceneOverlays;
+  /** Players touching the ball in this moment, labelled on court (e.g. "Receiving"). */
+  contacts?: Contact[];
+}
+
+export interface Contact {
+  side: Side;
+  id: string;
+  label: string;
 }
 
 export interface AfterEvent {
@@ -428,6 +436,7 @@ export function buildServeReceive(world: World, b: BuildCommon): PlaceScenario {
         ballRest: { p: serverW, h: 1.2 },
         phase: 'preServe',
         caption: `Opponent serving · ${world.home.team.systemId} ${rotationText(world.home)}`,
+        contacts: [{ side: 'away', id: onCourt(world.away.team, world.away.rotation, true).find((o) => o.zone === 1)!.playerId, label: 'Serving' }],
       },
       three: {
         now: 'In a legal serve-receive spot that suits your role.',
@@ -470,12 +479,12 @@ export const rotationalSpot = (z: Zone) => ROTATIONAL_SPOTS[z];
 
 export const rotationText = (ctx: TeamCtx) => `Rotation ${ctx.rotation + 1} (setter in zone ${setterZone(ctx.team, ctx.rotation)})`;
 
-export function buildRelease(world: World, b: BuildCommon): PlaceScenario {
+export function buildRelease(world: World, b: BuildCommon, passerId?: string): PlaceScenario {
   const team = world.home.team;
   const f = receiveFormation(team, world.home.rotation);
   const plan = computePlan(world.home, { kind: 'release' });
   const serverW = W('away', SERVER_SPOT);
-  const passer = f.passers[0];
+  const passer = passerId && f.passers.includes(passerId) ? passerId : f.passers[0];
   const midW = { x: serverW.x + (W('home', f.positions[passer]).x - serverW.x) * 0.18, y: serverW.y + (W('home', f.positions[passer]).y - serverW.y) * 0.18 };
   const setterId = activeSetterId(team, world.home.rotation);
   return {
@@ -487,6 +496,10 @@ export function buildRelease(world: World, b: BuildCommon): PlaceScenario {
         ball: [seg(serverW, midW, 2.6, 3.0, 0.4, 500, 'Service contact')],
         phase: 'release',
         caption: 'Service contact! Players may now leave their rotational spots.',
+        contacts: [
+          { side: 'away', id: onCourt(world.away.team, world.away.rotation, true).find((o) => o.zone === 1)!.playerId, label: 'Served' },
+          { side: 'home', id: passer, label: 'Receiving' },
+        ],
       },
       three: {
         now: 'Leaving your legal start spot for your tactical position.',
@@ -568,6 +581,10 @@ export function buildFirstContact(world: World, b: BuildCommon, p: FirstContactP
         ball: [...incoming, passSeg],
         phase: p.source === 'dig' ? 'transition' : 'firstContact',
         caption: `${PASS_LABEL[p.quality]}. ${plan.notes[0] ?? ''}`,
+        contacts: [
+          { side: 'home', id: p.contactId, label: p.source === 'dig' ? 'Digging' : 'Passing' },
+          ...(second !== p.contactId ? [{ side: 'home' as const, id: second, label: 'Setting' }] : []),
+        ],
         overlays: { passTarget: setTarget(team.systemId) },
       },
       three: {
@@ -629,6 +646,7 @@ export function buildAttackCoverage(world: World, b: BuildCommon, p: AttackParam
         ball: [seg(W('home', setFrom), W('home', A), 2.4, 3.1, p.lane === 'middle' ? 3.2 : 5, 1000, 'Set')],
         phase: 'attackCoverage',
         caption: `Set to ${LANE_NAME[p.lane].toLowerCase()} — two blockers are forming against ${name(team, p.attackerId)}.`,
+        contacts: [{ side: 'home', id: p.attackerId, label: 'Attacking' }],
       },
       three: {
         now: 'Low and close to the hitter, eyes on the block.',
@@ -709,6 +727,10 @@ export function buildDefense(world: World, b: BuildCommon, p: DefenseParams, cat
         ball: [seg(W('away', setterAway), W('home', H), 2.4, 3.1, p.set === 'quick' ? 3 : 5.5, p.set === 'quick' ? 700 : 1200, 'Opponent set')],
         phase: 'defense',
         caption: `Opponent ${LANE_NAME[awayLane].toLowerCase()} attack · ${SYSTEM_LABEL[sys]} defence`,
+        contacts: [
+          { side: 'away', id: away.setterId, label: 'Setting' },
+          { side: 'away', id: away.attackerId, label: 'Attacking' },
+        ],
         overlays: { hitter: H, blockShadowFor: plan.blockers, attackRays: true },
       },
       three: {
@@ -791,6 +813,7 @@ export function buildTip(world: World, b: BuildCommon, p: TipParams): PlaceScena
         ball: [seg(W('home', H), W('home', mid), 3.0, 2.8, 0.5, 450, 'Tip!')],
         phase: 'tip',
         caption: `Tip ${shortDesc} · ${SYSTEM_LABEL[sys]} defence`,
+        contacts: [{ side: 'away', id: away.attackerId, label: 'Tipping' }],
         overlays: { hitter: H, tipAt: p.tipAt },
       },
       three: {
@@ -831,6 +854,7 @@ export function buildFreeBall(world: World, b: BuildCommon): PlaceScenario {
         ball: [seg(fromW, netW, 1.0, 3.6, 3.5, 1100, 'Free ball')],
         phase: 'freeBall',
         caption: '“Free ball!” — an easy, slow ball over the net.',
+        contacts: [{ side: 'away', id: onCourtIds(world.away)[4], label: 'Free ball' }],
       },
       three: { now: 'Switching from defence to offence.', watch: 'Where the free ball is heading.', next: 'A perfect pass and a full-tempo attack.' },
       hints: ['A free ball needs no block. What does that mean for your front-row players — and for your setter?', regionHint(plan, b.focusIds)],
@@ -872,6 +896,7 @@ export function buildServePre(world: World, b: BuildCommon): PlaceScenario {
         ballRest: { p: W('home', SERVER_SPOT), h: 1.2 },
         phase: 'serving',
         caption: free ? 'Serving team — no positional fault under FIVB 2025–2028.' : 'Serving team — this ruleset still judges overlap.',
+        contacts: [{ side: 'home', id: server, label: 'Serving' }],
       },
       three: { now: 'Wherever lets you switch fastest (if the rules allow).', watch: 'The opponent’s receive formation — where is their setter hiding?', next: 'Base defence: read their pass and setter.' },
       hints: [
@@ -915,6 +940,10 @@ export function buildServingBase(world: World, b: BuildCommon): PlaceScenario {
         ball: [seg(W('home', SERVER_SPOT), mid, 2.6, 3.0, 1.5, 700, 'Serve')],
         phase: 'serving',
         caption: 'Ball in flight — switch to base.',
+        contacts: [
+          { side: 'home', id: onCourt(world.home.team, world.home.rotation, true).find((o) => o.zone === 1)!.playerId, label: 'Served' },
+          { side: 'away', id: awayF.passers[1], label: 'Receiving' },
+        ],
       },
       three: { now: 'Getting to base before their pass.', watch: 'Their pass quality and where their setter goes.', next: 'Block or dig the attack that follows.' },
       hints: ['After your serve, everyone plays their specialty: front-row blockers at the net, back-row defenders in their areas.', regionHint(plan, b.focusIds)],
@@ -1564,8 +1593,10 @@ export function generate(category: Category, opts: GenOptions): Scenario {
         });
       }
       if (k === 2) {
-        const f = receiveFormation(team, w.world.home.rotation);
-        return buildFirstContact(w.world, B(w, 'Broken play: pass too close to the net'), { contactId: rng.pick(f.passers), quality: 'tight', source: 'serve' });
+        // A serve-receive situation: the team must be the receiving side (libero on court).
+        const wr = chooseWorld(opts, false);
+        const f = receiveFormation(wr.world.home.team, wr.world.home.rotation);
+        return buildFirstContact(wr.world, B(wr, 'Broken play: pass too close to the net'), { contactId: rng.pick(f.passers), quality: 'tight', source: 'serve' });
       }
       return buildTip(w.world, B(w, 'Broken play: block deflection'), { from, tipAt: v(from === 'ourRight' ? 6.0 : 3.0, 6.8) });
     }
@@ -1615,6 +1646,9 @@ export function scenarioIsConsistent(s: Scenario): string[] {
     for (const id of s.objective.controlled) if (!s.objective.variants[0].targets[id]) errs.push(`No target for ${id}.`);
   }
   for (const segm of s.scene.ball) if (!Number.isFinite(segm.to.x) || !Number.isFinite(segm.to.y)) errs.push('Ball path is invalid.');
+  for (const c of s.scene.contacts ?? []) {
+    if (!onCourtIds(c.side === 'home' ? home : s.scene.away).includes(c.id)) errs.push(`Ball contact (${c.label}) by a player who is not on court.`);
+  }
   const lib = home.team.liberoId;
   if (lib && ids.includes(lib) && isFrontZone(zoneIn(home, lib)!)) errs.push('Libero in front row.');
   return errs;

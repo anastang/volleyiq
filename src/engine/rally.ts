@@ -121,7 +121,7 @@ function buildFor(run: RallyRun, node: RallyNode, rng: Rng): Scenario {
     case 'receive':
       return buildServeReceive(w, c('Prepare: serve receive', 'serveReceive'));
     case 'release':
-      return buildRelease(w, c('Service contact: release', 'release'));
+      return buildRelease(w, c('Service contact: release', 'release'), node.passer);
     case 'first': {
       const incoming =
         node.source === 'dig' && node.from

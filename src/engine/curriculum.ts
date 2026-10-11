@@ -37,6 +37,8 @@ export interface LessonScene {
 export type DemoKind = 'zones' | 'rows' | 'rotate' | 'roles' | 'systems' | 'overlap' | 'release' | 'coverage' | 'defense' | 'transition' | 'reading' | 'scrimmage';
 
 export interface LessonCard {
+  /** Stable id so other screens (e.g. simulator feedback) can link to this card. */
+  id?: string;
   title: string;
   /** Short intro line. */
   body?: string;
@@ -80,6 +82,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Every rotation, assignment and rule is described with six numbered positions.',
         cards: [
           {
+            id: 'zones',
             title: 'The six numbered positions',
             what: 'Facing the net: Position 1 is right-back (where the server stands), 2 right-front, 3 middle-front, 4 left-front, 5 left-back, 6 middle-back. The numbers run anticlockwise from the server.',
             why: 'Coaches, referees and teammates describe every rotation and job with these numbers. “Setter in 1” instantly tells everyone the whole lineup.',
@@ -88,6 +91,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['rotational'], zones: true },
           },
           {
+            id: 'rows',
             title: 'Front row and back row',
             what: 'Positions 2, 3 and 4 are the front row. Positions 1, 5 and 6 are the back row.',
             why: 'Your row decides what you are allowed to do: only front-row players may block, and back-row players may only attack a ball above the net if they take off behind the 3 m line.',
@@ -112,6 +116,7 @@ export const CURRICULUM: Level[] = [
         summary: 'When you win the serve back, everyone moves one place clockwise.',
         cards: [
           {
+            id: 'rotate',
             title: 'When does a team rotate?',
             what: 'When the receiving team wins a rally it gains the serve and every player moves one place clockwise: 2→1, 1→6, 6→5, 5→4, 4→3, 3→2.',
             why: 'Rotating shares serving and makes every player play front row and back row in turn.',
@@ -120,6 +125,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['rotational'], rotate: true, zones: true },
           },
           {
+            id: 'service-order',
             title: 'Service order',
             what: 'The player who rotates into Position 1 serves, from anywhere behind the end line between the side-line extensions.',
             why: 'Serving out of order is a rotational fault: the opponent gets the point and the order is corrected.',
@@ -152,6 +158,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Three different ideas — never mix them up.',
         cards: [
           {
+            id: 'three-ideas',
             title: 'Three different ideas',
             what: 'Rotational position: your official place in the order (1–6). Role: your specialty (setter, outside, middle, opposite, libero, DS). Tactical position: where you move during the rally to do your job.',
             why: 'A setter in Position 1 runs to the net to set — but is still back row. Mixing these up causes illegal blocks, overlaps and players in the wrong place.',
@@ -160,6 +167,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'release'] },
           },
           {
+            id: 'libero-ds',
             title: 'Libero and defensive specialist',
             what: 'The libero wears a different jersey and replaces back-row players (usually the middles) without using a substitution. A DS is a normal substitute who comes in for passing and defence.',
             why: 'Middles are usually the team’s weakest passers; the libero lets the team keep its best passer on court in the back row.',
@@ -175,6 +183,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Setter, outside, middle, opposite and libero — their job in every phase.',
         cards: [
           {
+            id: 'job-setter',
             title: 'Setter',
             what: 'Takes the second contact and delivers hittable sets. Hides in serve receive, releases to the target (right of centre, about 1 m off the net) at service contact, and covers the hitter after setting.',
             why: 'Consistent second contacts are what turn passes into points. A setter who arrives late makes every set rushed.',
@@ -183,6 +192,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'release', 'firstGood'] },
           },
           {
+            id: 'job-outside',
             title: 'Outside hitter',
             what: 'A primary passer and the left-side attacker. After passing, opens up wide and behind the 3 m line for the approach. In the back row, plays middle-back and often hits the pipe.',
             why: 'When a pass is off, the high ball almost always goes to the outside — they are the team’s safety valve.',
@@ -191,6 +201,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'firstGood', 'attackLeft'] },
           },
           {
+            id: 'job-middle',
             title: 'Middle blocker',
             what: 'Front-row blocking anchor and quick attacker. Reads the opposing setter and closes the block to whichever side they set. On offence, approaches close to the setter for the quick.',
             why: 'A threatening quick attack freezes the opposing middle and opens the outside. A good middle blocker affects every opponent attack.',
@@ -199,6 +210,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['release', 'firstGood', 'defMiddle'] },
           },
           {
+            id: 'job-opposite',
             title: 'Opposite (right side)',
             what: 'Attacks and blocks on the right. Usually does not pass serve. Blocks the opponent’s outside hitter and plays right-back defence when back row.',
             why: 'The opponent’s most-used attacker is their outside — and the right-side blocker faces them.',
@@ -207,6 +219,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['release', 'attackRight', 'defRight'] },
           },
           {
+            id: 'job-libero',
             title: 'Libero',
             what: 'The team’s best passer and defender. Takes the biggest share of serve receive and plays left-back or middle-back on defence.',
             why: 'Putting the best ball-control player in the back row for every rotation stabilises passing and defence.',
@@ -260,6 +273,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Where the setter hides, who passes and who switches in all six rotations.',
         cards: [
           {
+            id: 'read-rotation',
             title: 'How to read any rotation',
             what: 'Find three things: (1) which zone the setter is in, (2) how many front-row hitters you have, (3) who the three passers are.',
             why: 'Those three facts decide the receive formation, the setter’s release path and the attack options.',
@@ -268,6 +282,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['rotational', 'receive'], rotation: 0, zones: true },
           },
           {
+            id: 'r1',
             title: 'Setter in 1 (Rotation 1)',
             what: 'The setter hides behind the right-side passer and releases straight up the right side. The opposite starts at left-front, tucked at the net, and switches to the right after contact.',
             why: 'It is the shortest legal path to the target without crossing a passer. Three front-row hitters are available.',
@@ -275,6 +290,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'release'], rotation: 0 },
           },
           {
+            id: 'r2',
             title: 'Setter in 6 (Rotation 2)',
             what: 'The setter stacks directly behind the middle-front player, one step from the target.',
             why: 'The setter must stay behind the Position 3 player and between Positions 5 and 1 — standing right behind the middle satisfies both and keeps the release short.',
@@ -282,6 +298,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'release'], rotation: 1 },
           },
           {
+            id: 'r3',
             title: 'Setter in 5 (Rotation 3)',
             what: 'The longest release: the setter hides at the net behind the left-front player and runs along the net to the target.',
             why: 'From deep left-back the run would be about 8 m; stacking at the net cuts it to about 5 m and keeps the setter out of the passing lanes.',
@@ -289,6 +306,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'release'], rotation: 2 },
           },
           {
+            id: 'r4',
             title: 'Setter in 4 (Rotation 4)',
             what: 'The setter is front row at left-front. They push as far right as the rules allow — just left of the middle — and slide right after contact.',
             why: 'Front-row setter = only two front-row hitters, but the setter can legally attack or dump a tight second ball.',
@@ -296,6 +314,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'release'], rotation: 3 },
           },
           {
+            id: 'r56',
             title: 'Setter in 3 and 2 (Rotations 5–6)',
             what: 'The setter starts at the net almost on target. The back-row opposite hides out of the passing lanes, and three passers spread across the court.',
             why: 'Releases are tiny, so passers can focus purely on passing.',
@@ -319,6 +338,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Only certain pairs of players matter — judged on the feet.',
         cards: [
           {
+            id: 'front-back',
             title: 'Front/back pairs',
             what: 'At the moment of the serve, the back-row player must not be in front of their front-row partner: 5 behind 4, 6 behind 3, 1 behind 2. Officially (FIVB 7.4.3.1), part of one of the back player’s feet must be level with or further from the net than the front player’s front foot.',
             why: 'This keeps the rotational order recognisable at the moment play starts.',
@@ -327,6 +347,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive'], zones: true, feet: true },
           },
           {
+            id: 'same-row',
             title: 'Same-row order',
             what: 'Within each row the order is left–centre–right: 4·3·2 in front and 5·6·1 behind. Each side player must be level with, or have a foot closer to their side line than, every other player in that row.',
             why: 'Together with the front/back rule, this is all the rulebook asks for.',
@@ -335,6 +356,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['rotational', 'receive'], zones: true, feet: true },
           },
           {
+            id: 'which-team',
             title: 'Which team is judged?',
             what: 'Under FIVB 2025–2028 only the RECEIVING team must be in rotational order. The serving team may stand anywhere on its own court; both teams must be inside their court (except the server).',
             why: 'It lets the serving team start in its defensive spots — but the serving team still must not screen the server.',
@@ -350,6 +372,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Why receive formations look strange — and why they work.',
         cards: [
           {
+            id: 'stacking',
             title: 'What stacking is',
             what: 'Players stand far from the middle of their zone while keeping their legal relationships — for example, a setter in Position 5 standing at the net behind the left-front player.',
             why: 'It puts the best passers in the passing lanes, gets non-passers out of the way, and shortens the setter’s run.',
@@ -358,6 +381,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['rotational', 'receive'], rotation: 2, zones: true },
           },
           {
+            id: 'hiding',
             title: 'Hiding non-passers',
             what: 'Middles and the opposite usually do not pass. They hide close to the net or in a corner, out of the passers’ way.',
             why: 'A non-passer in a lane blocks a passer’s view and movement, and two people going for one ball is how serve receive breaks.',
@@ -365,6 +389,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive'], rotation: 0 },
           },
           {
+            id: 'switching',
             title: 'Switching after the serve',
             what: 'The instant the serve is contacted, everyone moves to their specialty spot: setter to the target, outside left, middle centre, opposite right; back row to their defensive areas.',
             why: 'Playing the same spot every rally means consistent attacking and blocking jobs.',
@@ -386,9 +411,19 @@ export const CURRICULUM: Level[] = [
       {
         id: 'l5-passing',
         title: 'Passing lanes, seams and reading the serve',
-        summary: 'Who takes which ball — and where to send it.',
+        summary: 'Who passes, who takes which ball — and where to send it.',
         cards: [
           {
+            id: 'who-passes',
+            title: 'Who passes — and who doesn’t',
+            what: 'In most rotations three players pass: the libero and the two outside hitters. The setter, the middle blocker and the opposite usually do NOT pass — they hide near the net or in a corner, legally, out of the passers’ way.',
+            why: 'Passing is a specialist skill. Keeping it with your best passers gives the most accurate first contacts, frees the setter to release, and lets the middle and opposite prepare their attack instead.',
+            when: 'Every serve-receive rotation. Exceptions: a short serve only a front-row player can reach, or newer teams using a four-passer formation. If you are a middle or opposite, your receive job is: stay legal, stay out of the lanes, be ready to attack.',
+            cue: 'Passers pass. Everyone else hides and gets ready.',
+            scene: { phases: ['receive', 'release'], rotation: 0 },
+          },
+          {
+            id: 'lanes',
             title: 'Passing lanes',
             what: 'Three passers split the court into lanes. Stand deep enough (around 5–6 m from the net) that you move forward to most serves.',
             why: 'Moving forward to a ball is far easier than backing up, and clear lanes stop two people going for the same serve.',
@@ -397,6 +432,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive'], rotation: 1 },
           },
           {
+            id: 'seams',
             title: 'Seams',
             what: 'A seam is the gap between two passers. Teams agree who owns it — often the libero takes every seam ball they can reach, otherwise the inside or forward-moving passer.',
             why: 'Seams are where servers aim. Hesitation in the seam is the most common way receive breaks down.',
@@ -405,6 +441,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive'], rotation: 0 },
           },
           {
+            id: 'read-serve',
             title: 'Reading the server',
             what: 'Watch the server’s position, shoulders and toss. A float serve moves late — stay behind it. A topspin serve dives — get low early. Short serves need a forward step; deep serves may go out.',
             why: 'The earlier you read the serve, the more time you have to get your platform behind the ball.',
@@ -413,6 +450,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'release'], rotation: 2 },
           },
           {
+            id: 'pass-target',
             title: 'Where to pass',
             what: 'Pass high to the target: right of centre, about 1 m off the net. Height buys your setter time.',
             why: 'On target, every attacker is live (including the middle quick). Off the net, options shrink to high balls to the pins.',
@@ -429,6 +467,7 @@ export const CURRICULUM: Level[] = [
         summary: 'After contact, the overlap rule ends and everyone moves.',
         cards: [
           {
+            id: 'setter-release',
             title: 'Setter release',
             what: 'The setter leaves at service contact and runs to the target without cutting across a passer.',
             why: 'If the setter is late, every set is rushed or the second ball goes to someone else.',
@@ -437,6 +476,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'release'], rotation: 2 },
           },
           {
+            id: 'non-passers-move',
             title: 'Non-passers never stand still',
             what: 'Hitters hiding at the net move off it to their approach start; back-row non-passers move out of the lanes toward their base.',
             why: 'An attacker who starts their approach from the net has no run-up and no power.',
@@ -452,6 +492,7 @@ export const CURRICULUM: Level[] = [
         summary: 'What to do after you pass — and when someone else passes.',
         cards: [
           {
+            id: 'after-pass',
             title: 'After you pass',
             what: 'If you are an attacking option, open up and get back to your approach start. If not, move toward the hitter to cover.',
             why: 'Passers who watch their own pass are late to attack, and the setter loses an option.',
@@ -460,6 +501,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['receive', 'firstGood'], rotation: 0 },
           },
           {
+            id: 'teammate-passes',
             title: 'When a teammate passes',
             what: 'Read the pass. A good pass keeps all hitters live; an off pass means a high ball to a pin — the middle stops their quick and covers instead.',
             why: 'Everyone’s next job depends on the pass quality, so read it early.',
@@ -483,6 +525,7 @@ export const CURRICULUM: Level[] = [
         summary: 'In system vs out of system, and what attackers do.',
         cards: [
           {
+            id: 'in-system',
             title: 'In system vs out of system',
             what: 'In system: the setter gets to the ball near the target with time to choose any hitter. Out of system: the pass or dig is off, so the set is a high ball, usually to the outside.',
             why: 'Out of system, a fast or tricky set causes errors; a high, hittable set keeps the rally alive and gives your hitter a real swing.',
@@ -491,6 +534,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['firstGood', 'firstOff'], rotation: 0 },
           },
           {
+            id: 'approach',
             title: 'Approach starts',
             what: 'Outside: wide and behind the 3 m line. Middle: close to the setter for the quick. Opposite: wide right. Back-row hitters: behind the attack line.',
             why: 'A long, angled approach gives power and lets the hitter see the block; back-row hitters must take off behind the line to attack above the net.',
@@ -498,6 +542,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['release', 'firstGood'], rotation: 1 },
           },
           {
+            id: 'shots',
             title: 'Shot selection',
             what: 'Hard swing to open court, roll shot or tip over the block, or use the block (hit off the blockers’ hands out of bounds).',
             why: 'A smart shot beats a hard shot into a well-set block.',
@@ -513,6 +558,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Why, where and when to cover your hitter.',
         cards: [
           {
+            id: 'why-cover',
             title: 'Why cover?',
             what: 'Coverage means surrounding your own hitter, low, to play balls the block sends straight back.',
             why: 'A stuffed ball drops steeply within about 2–3 m of the hitter — far too fast to reach from across the court. Covered balls give your team a second swing.',
@@ -521,6 +567,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['firstGood', 'attackLeft'], rotation: 0 },
           },
           {
+            id: 'cup',
             title: 'The cup: three close, two deep',
             what: 'Three players form a tight ring about 1.5–2 m around the hitter; two more cover deeper, about 4–5 m back, filling the gaps.',
             why: 'Most blocked balls land close; the second layer catches the ones that rebound deep.',
@@ -529,6 +576,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['attackLeft', 'attackRight'], rotation: 0 },
           },
           {
+            id: 'cover-by-attack',
             title: 'Coverage by attack',
             what: 'Outside attack: setter, middle and left-back close; others deep. Right-side attack: mirror it. Middle quick: everyone tighter and faster. Pipe: a wide circle around the middle of the court.',
             why: 'Coverage moves with the hitter — the shape stays the same, its position changes.',
@@ -536,6 +584,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['attackLeft', 'attackMiddle', 'attackRight', 'attackPipe'], rotation: 0 },
           },
           {
+            id: 'cover-changes',
             title: 'When coverage changes',
             what: 'Quick set: cover from where you are. High out-of-system ball: there is time for a full cup. Big opposing block: stay a little deeper and lower.',
             why: 'Coverage is about being in the landing zone of a blocked ball, which depends on set speed and block size.',
@@ -560,6 +609,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Where to start — and the order to read the play.',
         cards: [
           {
+            id: 'base',
             title: 'Base positions',
             what: 'Front row at the net, spread to block; back row in their areas, balanced and low.',
             why: 'Base lets you move to any attack. Committing early leaves holes.',
@@ -567,6 +617,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['servePre', 'base'], rotation: 0 },
           },
           {
+            id: 'read-sequence',
             title: 'The read sequence',
             what: 'Read in order: their pass → their setter → the set → the hitter’s approach and shoulder.',
             why: 'Each read narrows the options. A pass off the net rules out the quick; a front-row setter on a tight pass can dump.',
@@ -583,6 +634,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Who blocks whom, and the off-blocker’s job.',
         cards: [
           {
+            id: 'who-blocks',
             title: 'Who blocks whom',
             what: 'Your right-front blocks their outside (their left side); your left-front blocks their opposite; the middle blocks their middle and closes to the outside blocker.',
             why: 'The outside blocker sets the block on the hitter’s hitting arm and seals the line; the middle closes the gap so there is no seam between the hands.',
@@ -591,6 +643,16 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['defRight', 'defLeft'], rotation: 0 },
           },
           {
+            id: 'who-can-block',
+            title: 'Who is allowed to block',
+            what: 'Only the three front-row players may block. Back-row players and the libero may not complete a block or take part in one — even if they are standing right at the net.',
+            why: 'It is a rule (FIVB 14.6): a back-row block or a libero block attempt is a fault and loses the point.',
+            when: 'Always. If you are back row this rotation, your job when they attack is to dig behind the block.',
+            cue: 'Back row? Defend, don’t block.',
+            scene: { phases: ['defRight'], rotation: 0, highlightFront: true, zones: true },
+          },
+          {
+            id: 'read-commit',
             title: 'Read vs commit',
             what: 'Read blocking: watch the setter, then move to the set. Commit blocking: jump with their middle on the quick regardless.',
             why: 'Reading gets more blocks on high sets; committing stops a dominant quick attacker.',
@@ -598,6 +660,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['defMiddle', 'defRight'], rotation: 2 },
           },
           {
+            id: 'off-blocker',
             title: 'The off-blocker',
             what: 'The front-row player not needed in the block drops off the net to about the attack line.',
             why: 'They cover the sharp cross-court shot and short tips — and are already in their approach for the counter-attack.',
@@ -614,6 +677,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Defenders cover what the block cannot.',
         cards: [
           {
+            id: 'shadow',
             title: 'The block’s shadow',
             what: 'The block takes away a wedge of court behind it. Defenders stand outside that shadow: one on the line, one cross-court, one deep.',
             why: 'Standing in the shadow wastes a defender — the ball can’t easily go there.',
@@ -622,6 +686,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['defRight', 'defLeft'], rotation: 0 },
           },
           {
+            id: 'dig-high',
             title: 'Dig high to the middle',
             what: 'Keep the ball on your side, high, toward the middle of the court.',
             why: 'A high dig gives the setter (or anyone) time to set a hittable ball.',
@@ -638,6 +703,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Perimeter, rotational and middle-up — coaching choices, not rules.',
         cards: [
           {
+            id: 'perimeter',
             title: 'Perimeter',
             what: 'Back-row defenders stay on the edges and deep; middle-back protects the deep court.',
             why: 'Strong against hard hitters — most hard swings go deep or to the edges.',
@@ -645,6 +711,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['defRight'], rotation: 0, defense: 'perimeter' },
           },
           {
+            id: 'rotational',
             title: 'Rotational',
             what: 'The line-side back defender rotates up behind the block for tips; middle-back rotates to the deep line.',
             why: 'Takes away tips and short line shots.',
@@ -652,6 +719,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['defRight'], rotation: 0, defense: 'rotation' },
           },
           {
+            id: 'middle-up',
             title: 'Middle-up (rover)',
             what: 'Middle-back plays up behind the block; the wing defenders cover the deep corners.',
             why: 'Kills tips and soft shots in the middle.',
@@ -667,6 +735,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Recognise the tip and move forward early.',
         cards: [
           {
+            id: 'spot-tip',
             title: 'Spot the tip',
             what: 'The hitter’s arm slows down, the hand opens, or they jump late and under the ball.',
             why: 'Tips are slow — whoever reads them early gets there easily.',
@@ -675,6 +744,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['defRight', 'tip'], rotation: 0 },
           },
           {
+            id: 'tip-who',
             title: 'Who takes it?',
             what: 'It depends on the system and the block: in perimeter, the line digger or off-blocker; in rotational, the defender who rotated up; in middle-up, the rover.',
             why: 'No single player covers every tip. If everyone knows their zone, nobody freezes.',
@@ -698,6 +768,7 @@ export const CURRICULUM: Level[] = [
         summary: 'After the dig: recover, find the setter, attack.',
         cards: [
           {
+            id: 'transition',
             title: 'Transition footwork',
             what: 'Blockers land, turn to find the ball, and back off the net to their approach. Diggers get up and become hitters or coverage.',
             why: 'Most points in a long rally are won by the team that transitions faster.',
@@ -706,6 +777,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['defRight', 'firstOff', 'attackLeft'], rotation: 0 },
           },
           {
+            id: 'setter-digs',
             title: 'When the setter digs',
             what: 'The setter calls “help!”; the pre-assigned emergency setter (often the libero or right-front) takes the second ball and sets high to a pin.',
             why: 'A player may not touch the ball twice in a row — someone else must set.',
@@ -721,6 +793,7 @@ export const CURRICULUM: Level[] = [
         summary: 'Switch to offence instantly when the opponent can’t attack.',
         cards: [
           {
+            id: 'free-ball',
             title: 'Free ball',
             what: 'An easy ball over the net with no attack. Call “free!”, the setter releases, hitters drop off the net to their approaches, back row passes.',
             why: 'A free ball is the best chance in the rally to run your full offence.',
@@ -729,6 +802,7 @@ export const CURRICULUM: Level[] = [
             scene: { phases: ['base', 'free'], rotation: 0 },
           },
           {
+            id: 'down-ball',
             title: 'Down ball',
             what: 'A ball hit over standing, from deep. It is faster than a free ball but easy to dig.',
             why: 'Front-row players usually stay to block a down ball rather than dropping off.',

@@ -3,6 +3,7 @@ import type { Side, Vec, Zone } from '../../engine/geometry';
 import type { DefenseSystemId, SystemId } from '../../engine/types';
 import { demoScene, type DemoPhase } from '../demo';
 import { resolveFocus } from '../../engine/scenarios';
+import type { Role } from '../../engine/types';
 import { useStore } from '../store';
 import { Court, courtStyle, type Arrow, type CourtOverlays } from './Court';
 import { usePhone } from '../hooks';
@@ -31,6 +32,8 @@ export interface DemoCourtProps {
   tooltips?: boolean;
   /** Mark the player matching the user's role with the YOU marker (default true). */
   showMe?: boolean;
+  /** Mark this role as YOU instead of the role saved in Settings. */
+  meRole?: Role;
 }
 
 export function DemoCourt(p: DemoCourtProps) {
@@ -79,7 +82,8 @@ export function DemoCourt(p: DemoCourtProps) {
     ...p.extraOverlays,
   };
   const homeScene = { ...scene.world.home, serving: scene.serving, positions: homePos };
-  const meId = p.showMe !== false && settings.role !== 'ALL' && settings.role !== 'DS' ? resolveFocus(scene.world, { kind: 'role', role: settings.role }).ids[0] : undefined;
+  const youRole = p.meRole ?? (settings.role === 'ALL' ? undefined : settings.role);
+  const meId = p.showMe !== false && youRole && youRole !== 'DS' ? resolveFocus(scene.world, { kind: 'role', role: youRole }).ids[0] : undefined;
   const awayScene = { ...scene.world.away, serving: !scene.serving, positions: scene.away };
   return (
     <div className={p.className} style={phone ? { aspectRatio: courtStyle(p.view ?? 'full', true).aspectRatio, ...p.style } : p.style}>
