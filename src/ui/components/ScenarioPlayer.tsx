@@ -7,10 +7,11 @@ import { playerById } from '../../engine/systems';
 import { blockShadow } from '../../engine/tactics';
 import { ROLE_INFO, type Difficulty } from '../../engine/types';
 import { useStore, zonesVisible } from '../store';
-import { Court, type Arrow, type CourtOverlays, type Ghost, type RegionMark } from './Court';
+import { Court, courtStyle, type Arrow, type CourtOverlays, type Ghost, type RegionMark } from './Court';
 import { playerInfo, PlayerPanel, TooltipCard, ZonePanel } from './InfoPanel';
 import { Bar, Button, Collapsible, Icon, Pill, Segmented, VerdictBadge } from './ui';
 import { CourtLegend, YouCard } from './YouCard';
+import { usePhone } from '../hooks';
 
 export interface StepResult {
   score: number;
@@ -28,13 +29,15 @@ interface Props {
   timerSec?: number;
   header?: ReactNode;
   difficulty?: Difficulty;
+  /** Part of a continuous rally: the next step animates the play, so skip the separate "what happens next" preview (it would contradict the next step's start). */
+  chained?: boolean;
   /** Called as soon as the user checks/answers (before Next). */
   onChecked?: (r: StepResult) => void;
 }
 
 const CHOICE_SCORE: Record<ChoiceOption['verdict'], number> = { best: 100, ok: 70, wrong: 15, illegal: 0 };
 
-export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timerSec, header, difficulty, onChecked }: Props) {
+export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timerSec, header, difficulty, onChecked, chained }: Props) {
   const { settings, reduced, update } = useStore();
   const level = difficulty ?? settings.level;
   const sc = scenario;
@@ -56,7 +59,8 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
   const [inspect, setInspect] = useState<{ kind: 'player'; side: Side; id: string } | { kind: 'zone'; side: Side; zone: Zone } | null>(null);
   const [paused, setPaused] = useState(false);
   const [speed, setSpeed] = useState(settings.speed);
-  const [view, setView] = useState(settings.view);
+  const phone = usePhone();
+  const [view, setView] = useState<'full' | 'half'>(phone ? 'half' : settings.view);
   const [tilt, setTilt] = useState(false);
   const [showZones, setShowZones] = useState(zonesVisible(settings));
   const [showCoverage, setShowCoverage] = useState(false);
@@ -260,11 +264,18 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
     return <TooltipCard info={playerInfo(s, id, curPhase, t, s.positions[id])} />;
   };
 
-  const box = view === 'half' ? { w: 15, h: 14.2 } : { w: 15, h: 24.8 };
-  const courtStyle = { aspectRatio: `${box.w} / ${box.h}`, maxHeight: '78vh', maxWidth: `calc(78vh * ${box.w / box.h})` };
+  const cStyle = courtStyle(view, phone, 78);
   const meId = sc.focusIds.length === 1 ? sc.focusIds[0] : undefined;
   const homeScene = { ...home, positions };
 
+  const mobileVerdict =
+    sc.kind === 'place' && ev
+      ? `${ev.verdict === 'recommended' ? '✓ Great spot' : ev.verdict === 'acceptable' ? '✓ Good enough' : ev.verdict === 'weak' ? '~ Not quite' : '✗ Illegal'} · ${ev.verdict === 'illegal' ? 0 : ev.score}`
+      : sc.kind === 'choice' && picked
+        ? (() => { const v = sc.options.find((o) => o.id === picked)!.verdict; return v === 'best' ? '✓ Correct' : v === 'ok' ? '✓ Defensible' : v === 'illegal' ? '✗ Illegal' : '✗ Not quite'; })()
+        : sc.kind === 'tapZone' && tapped
+          ? sc.correct.includes(tapped) ? '✓ Correct' : '✗ Not quite'
+          : '';
   const panelRef = useRef<HTMLDivElement>(null);
   const mobileBar =
     sc.kind === 'place' && (stage === 'act' || stage === 'intro') ? (
@@ -274,8 +285,10 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
       </>
     ) : stage === 'checked' || stage === 'after' ? (
       <>
-        <Button className="flex-1" icon="info" onClick={() => panelRef.current?.scrollIntoView({ behavior: 'smooth' })}>Feedback</Button>
-        {sc.after && stage === 'checked' && <Button icon="play" className="whitespace-nowrap" onClick={playAfter}>Watch</Button>}
+        <button className="min-w-0 flex-1 truncate rounded-xl bg-white/8 px-3 text-left text-sm font-semibold text-white ring-1 ring-white/10" onClick={() => panelRef.current?.scrollIntoView({ behavior: 'smooth' })}>
+          {mobileVerdict}
+        </button>
+        {sc.after && !chained && stage === 'checked' && <Button icon="play" className="whitespace-nowrap px-3" onClick={playAfter} aria-label="Watch what happens" />}
         <Button variant="primary" icon="right" className="whitespace-nowrap" onClick={finish}>Next</Button>
       </>
     ) : null;
@@ -283,10 +296,14 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
   const guide = level === 'competitive' ? null : level === 'beginner' ? sc.three.now : sc.three.watch;
 
   return (
-    <div className="grid gap-4 pb-20 lg:grid-cols-[minmax(0,1fr)_380px] lg:pb-0">
-      {mobileBar && <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-white/10 bg-slate-950/90 p-3 backdrop-blur lg:hidden">{mobileBar}</div>}
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pb-24 lg:grid-cols-[minmax(0,1fr)_380px] lg:pb-0">
+      {mobileBar && <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-white/10 bg-slate-950/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">{mobileBar}</div>}
       {/* Court column */}
       <div className="min-w-0">
+        <div className="mb-2 space-y-2 lg:hidden">
+          {meId && <YouCard scene={homeScene} id={meId} compact />}
+          <p className="text-[15px] leading-snug font-semibold text-white">{sc.kind === 'place' ? sc.prompt : sc.question}</p>
+        </div>
         <div className="mb-2 flex items-center gap-2">
           <Pill tone={stage === 'freeze' ? 'rose' : 'sky'} className="min-w-0">
             <Icon name={stage === 'freeze' ? 'whistle' : 'ball'} className="h-3.5 w-3.5 shrink-0" />
@@ -314,7 +331,7 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
             <ToggleChip on={pauseOpen} onClick={() => { setPauseOpen((p) => !p); setPaused(true); }} icon="eye" label="Tactical pause" />
           </div>
         )}
-        <div className="relative mx-auto w-full" style={courtStyle}>
+        <div className="relative mx-auto w-full" style={cStyle}>
           <Court
             className="h-full w-full"
             home={homeScene}
@@ -329,7 +346,7 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
             onMove={(id, p) => setPositions((pos) => ({ ...pos, [id]: p }))}
             selectedId={selected}
             onSelect={(id) => setSelected(id && controlled.includes(id) ? id : null)}
-            onInspect={(side, id) => setInspect({ kind: 'player', side, id })}
+            onInspect={(side, id) => (side === 'home' && controlled.includes(id) && (stage === 'act' || stage === 'intro') ? undefined : setInspect({ kind: 'player', side, id }))}
             onZoneTap={tap}
             overlays={overlays}
             view={view}
@@ -351,9 +368,11 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
       <aside className="space-y-3" ref={panelRef}>
         {header}
         <div className="space-y-3 rounded-2xl bg-slate-900/70 p-4 ring-1 ring-white/8">
-          <YouCard scene={homeScene} id={meId} />
+          <div className="hidden lg:block">
+            <YouCard scene={homeScene} id={meId} />
+          </div>
           {sc.focusNote && <p className="rounded-lg bg-sky-400/10 p-2 text-xs text-sky-100">{sc.focusNote}</p>}
-          <div>
+          <div className="hidden lg:block">
             <div className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">{sc.title}</div>
             <p className="mt-1 text-[15px] leading-snug font-medium text-white">{sc.kind === 'place' ? sc.prompt : sc.question}</p>
           </div>
@@ -429,7 +448,7 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
                   {showingRec ? 'Back to mine' : 'Show the answer'}
                 </Button>
               )}
-              {sc.after && stage === 'checked' && (
+              {sc.after && !chained && stage === 'checked' && (
                 <Button size="sm" icon="play" onClick={playAfter}>
                   Watch what happens
                 </Button>
@@ -448,6 +467,8 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
 
         {pauseOpen && <TacticalPause sc={sc} positions={positions} revealed={revealed} onClose={() => { setPauseOpen(false); setPaused(false); }} onPick={(id) => setInspect({ kind: 'player', side: 'home', id })} />}
 
+        {inspect && (
+          <div className="fixed inset-x-2 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 max-h-[55vh] overflow-auto rounded-2xl bg-slate-950 shadow-2xl ring-1 ring-white/15 lg:static lg:bg-transparent lg:ring-0 lg:max-h-none lg:overflow-visible lg:shadow-none">
         {inspect?.kind === 'player' && (
           <PlayerPanel
             info={playerInfo(
@@ -461,6 +482,8 @@ export function ScenarioPlayer({ scenario, onComplete, nextLabel = 'Next', timer
           />
         )}
         {inspect?.kind === 'zone' && <ZonePanel side={inspect.side} zone={inspect.zone} onClose={() => setInspect(null)} />}
+          </div>
+        )}
       </aside>
     </div>
   );

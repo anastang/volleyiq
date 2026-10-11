@@ -9,6 +9,8 @@ import { DemoCourt, useDemoScene } from '../components/DemoCourt';
 import { playerInfo, PlayerPanel, ZonePanel } from '../components/InfoPanel';
 import { Button, Card, Collapsible, Icon, Pill, ScreenHeader, Segmented, Toggle } from '../components/ui';
 import { CourtLegend } from '../components/YouCard';
+import { courtStyle } from '../components/Court';
+import { usePhone } from '../hooks';
 import { DEMO_PHASES, type DemoPhase } from '../demo';
 import { useStore } from '../store';
 import { SystemPicker } from './Modes';
@@ -28,7 +30,8 @@ export function ExplorerScreen({ initialZone }: { initialZone?: Zone }) {
   const [def, setDef] = useState<DefenseSystemId>(settings.defenseSystem);
   const [zones, setZones] = useState(true);
   const [trails, setTrails] = useState(true);
-  const [view, setView] = useState<'full' | 'half'>('full');
+  const phone = usePhone();
+  const [view, setView] = useState<'full' | 'half'>(phone ? 'half' : 'full');
   const [custom, setCustom] = useState<Record<string, Vec> | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [inspect, setInspect] = useState<{ kind: 'player'; side: Side; id: string } | { kind: 'zone'; side: Side; zone: Zone } | null>(initialZone ? { kind: 'zone', side: 'home', zone: initialZone } : null);
@@ -56,7 +59,7 @@ export function ExplorerScreen({ initialZone }: { initialZone?: Zone }) {
   return (
     <div className="mx-auto max-w-6xl pb-16">
       <ScreenHeader title="Explore the court" subtitle="Move anyone, tap anyone — nothing is graded" onBack={back} />
-      <div className="grid gap-4 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <Pill tone="sky">
@@ -72,7 +75,7 @@ export function ExplorerScreen({ initialZone }: { initialZone?: Zone }) {
           </div>
           <DemoCourt
             className="mx-auto w-full"
-            style={{ aspectRatio: view === 'half' ? '15 / 14.2' : '15 / 24.8', maxHeight: '78vh', maxWidth: `calc(78vh * ${view === 'half' ? 15 / 14.2 : 15 / 24.8})` }}
+            style={courtStyle(view, phone, 78)}
             systemId={sys}
             rotation={rot}
             phase={phase}
@@ -125,6 +128,8 @@ export function ExplorerScreen({ initialZone }: { initialZone?: Zone }) {
             </div>
           </Card>
 
+          {inspect && (
+          <div className="fixed inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-40 max-h-[55vh] overflow-auto rounded-2xl bg-slate-950 shadow-2xl ring-1 ring-white/15 lg:static lg:bg-transparent lg:ring-0 lg:max-h-none lg:overflow-visible lg:shadow-none">
           {inspect?.kind === 'player' && (
             <PlayerPanel
               info={playerInfo(inspect.side === 'home' ? { ...scene.world.home, serving: scene.serving, positions } : { ...scene.world.away, serving: !scene.serving, positions: scene.away }, inspect.id, scene.phase, inspect.side === 'home' && !custom ? scene.plan?.targets[inspect.id] : undefined)}
@@ -132,6 +137,8 @@ export function ExplorerScreen({ initialZone }: { initialZone?: Zone }) {
             />
           )}
           {inspect?.kind === 'zone' && <ZonePanel side={inspect.side} zone={inspect.zone} onClose={() => setInspect(null)} />}
+          </div>
+          )}
           {!inspect && <p className="px-1 text-xs text-slate-500">Tap any player to see their job right now, or tap an empty zone to learn about it.</p>}
           {legal && !legal.legal && (
             <Card className="space-y-1.5 p-3">

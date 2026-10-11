@@ -25,7 +25,7 @@ export function DefenseScreen() {
   return (
     <div className="mx-auto max-w-7xl pb-16">
       <ScreenHeader title="Defensive Systems" subtitle="Coaching strategies — not official rules. Different teams use different systems." onBack={back} />
-      <div className="grid gap-4 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div>
           <div className="mb-3 flex flex-wrap gap-2">
             <Segmented value={sys} onChange={setSys} options={(['perimeter', 'rotation', 'middleUp', 'read'] as DefenseSystemId[]).map((s) => ({ value: s, label: SYSTEM_LABEL[s] }))} />

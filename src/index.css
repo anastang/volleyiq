@@ -93,3 +93,26 @@ body {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 10px; }
 select { color-scheme: dark; }
+
+/* Touch devices */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+button,
+[role='button'] {
+  touch-action: manipulation;
+}
+@media (max-width: 640px) {
+  /* iOS zooms into inputs smaller than 16px — keep them at 16px on phones. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+#root {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}

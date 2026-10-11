@@ -42,6 +42,7 @@ function RallyStage({ run, onStep, timer }: { run: RallyRun; onStep: (r: StepRes
       scenario={st.scenario}
       onComplete={onStep}
       timerSec={timer}
+      chained
       nextLabel="Continue rally"
       header={
         st.narration ? (

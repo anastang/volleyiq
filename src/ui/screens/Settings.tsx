@@ -76,7 +76,7 @@ export function SettingsScreen() {
         <Card className="p-5">
           <h2 className="font-display mb-1 font-bold text-white">Your roster</h2>
           <p className="mb-3 text-xs text-slate-400">Names and jersey numbers for the {SYSTEMS[settings.systemId].name} lineup (in rotational order) plus libero and DS.</p>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2">
             {keys.map((k) => {
               const p = team.players.find((x) => x.id === 'h-' + k)!;
               return (
@@ -94,7 +94,7 @@ export function SettingsScreen() {
         <Card className="p-5">
           <h2 className="font-display mb-1 font-bold text-white">Custom / 5–2 setter plan</h2>
           <p className="mb-3 text-xs text-slate-400">“5–2” is defined differently by different coaching sources, so you choose who sets in each rotation. Used when the offensive system is set to Custom.</p>
-          <div className="mb-3 grid gap-2 sm:grid-cols-2">
+          <div className="mb-3 grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2">
             {PRESETS.map((p) => (
               <button key={p.label} onClick={() => update({ customSetters: p.plan })} className={`rounded-xl p-3 text-left ring-1 ${JSON.stringify(settings.customSetters) === JSON.stringify(p.plan) ? 'bg-amber-400/15 ring-amber-300/50' : 'bg-white/4 ring-white/10'}`}>
                 <div className="text-sm font-semibold text-white">{p.label}</div>
@@ -134,7 +134,7 @@ export function SettingsScreen() {
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[200px_1fr] sm:items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-[200px_minmax(0,1fr)] sm:items-start">
       <div>
         <div className="text-sm font-semibold text-white">{label}</div>
         {hint && <div className="text-xs text-slate-500">{hint}</div>}

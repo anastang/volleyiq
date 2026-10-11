@@ -4,7 +4,8 @@ import type { DefenseSystemId, SystemId } from '../../engine/types';
 import { demoScene, type DemoPhase } from '../demo';
 import { resolveFocus } from '../../engine/scenarios';
 import { useStore } from '../store';
-import { Court, type Arrow, type CourtOverlays } from './Court';
+import { Court, courtStyle, type Arrow, type CourtOverlays } from './Court';
+import { usePhone } from '../hooks';
 import { playerInfo, TooltipCard } from './InfoPanel';
 
 export interface DemoCourtProps {
@@ -34,6 +35,7 @@ export interface DemoCourtProps {
 
 export function DemoCourt(p: DemoCourtProps) {
   const { settings, ruleset, reduced } = useStore();
+  const phone = usePhone();
   const scene = useMemo(
     () =>
       demoScene(
@@ -80,7 +82,7 @@ export function DemoCourt(p: DemoCourtProps) {
   const meId = p.showMe !== false && settings.role !== 'ALL' && settings.role !== 'DS' ? resolveFocus(scene.world, { kind: 'role', role: settings.role }).ids[0] : undefined;
   const awayScene = { ...scene.world.away, serving: !scene.serving, positions: scene.away };
   return (
-    <div className={p.className} style={p.style}>
+    <div className={p.className} style={phone ? { aspectRatio: courtStyle(p.view ?? 'full', true).aspectRatio, ...p.style } : p.style}>
       <Court
         className="h-full w-full"
         home={homeScene}

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { CURRICULUM, MISTAKES, type DemoKind } from '../../engine/curriculum';
+import { CURRICULUM, MISTAKES, type DemoKind, type LessonScene } from '../../engine/curriculum';
 import { DemoCourt } from '../components/DemoCourt';
 import { ZonePanel } from '../components/InfoPanel';
 import { Button, Card, Icon, Pill, ScreenHeader } from '../components/ui';
-import type { DemoPhase } from '../demo';
+import { DEMO_PHASES, type DemoPhase } from '../demo';
+import { courtStyle } from '../components/Court';
+import { usePhone } from '../hooks';
 import { focusFromRole, useStore } from '../store';
 import { lessonConfig, mistakeConfig } from './sessions';
 import type { Zone } from '../../engine/geometry';
@@ -45,7 +47,7 @@ export function LearnScreen() {
   );
 }
 
-const DEMO_CYCLES: Record<DemoKind, { phases: DemoPhase[]; rotate?: boolean; zones?: boolean; highlightFront?: boolean; feet?: boolean }> = {
+const DEMO_CYCLES: Record<DemoKind, LessonScene> = {
   zones: { phases: ['rotational'], zones: true },
   rows: { phases: ['rotational'], zones: true, highlightFront: true },
   rotate: { phases: ['rotational'], rotate: true, zones: true },
@@ -60,26 +62,57 @@ const DEMO_CYCLES: Record<DemoKind, { phases: DemoPhase[]; rotate?: boolean; zon
   scrimmage: { phases: ['receive', 'release', 'firstGood', 'attackLeft', 'base', 'defRight', 'free'] },
 };
 
-function LessonDemo({ kind, onZone }: { kind: DemoKind; onZone: (z: Zone) => void }) {
+const phaseLabel = (p: string) => DEMO_PHASES.find((d) => d.id === p)?.label ?? p;
+
+function LessonDemo({ scene, onZone }: { scene: LessonScene; onZone: (z: Zone) => void }) {
   const { reduced } = useStore();
-  const c = DEMO_CYCLES[kind];
+  const phone = usePhone();
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
+  const cycles = scene.phases.length > 1 || scene.rotate;
   useEffect(() => {
-    if (paused || reduced) return;
-    const t = setInterval(() => setI((x) => x + 1), 2400);
+    if (paused || reduced || !cycles) return;
+    const t = setInterval(() => setI((x) => x + 1), 2600);
     return () => clearInterval(t);
-  }, [paused, reduced]);
-  const phase = c.phases[i % c.phases.length];
-  const rot = c.rotate ? i % 6 : 0;
+  }, [paused, reduced, cycles]);
+  const phase = scene.phases[i % scene.phases.length] as DemoPhase;
+  const rot = scene.rotate ? i % 6 : scene.rotation ?? 0;
   return (
     <div>
-      <DemoCourt className="mx-auto aspect-[15/14.2] w-full max-w-[480px]" view="half" rotation={rot} phase={phase} zones={c.zones} trails extraOverlays={{ zoneHighlight: c.highlightFront ? [2, 3, 4] : undefined, feet: c.feet }} onZoneTap={(side, z) => side === 'home' && onZone(z)} />
-      <div className="mt-2 flex justify-center gap-2">
-        <Button size="sm" icon={paused ? 'play' : 'pause'} onClick={() => setPaused((p) => !p)}>{paused ? 'Play' : 'Pause'}</Button>
-        <Button size="sm" icon="skip" onClick={() => setI((x) => x + 1)}>Step</Button>
-        {c.rotate && <Pill>Rotation {rot + 1}</Pill>}
+      <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5">
+        {scene.rotate || scene.rotation !== undefined ? <Pill>Rotation {rot + 1}</Pill> : null}
+        {scene.system && <Pill tone="violet">{scene.system}</Pill>}
+        <Pill tone="sky">{phaseLabel(phase)}</Pill>
       </div>
+      <DemoCourt
+        className="mx-auto w-full max-w-[480px]"
+        style={courtStyle('half', phone, 60)}
+        view="half"
+        rotation={rot}
+        phase={phase}
+        systemId={scene.system}
+        defenseSystem={scene.defense}
+        zones={scene.zones}
+        trails
+        extraOverlays={{ zoneHighlight: scene.highlightFront ? [2, 3, 4] : undefined, feet: scene.feet }}
+        onZoneTap={(side, z) => side === 'home' && onZone(z)}
+      />
+      {cycles && (
+        <div className="mt-2 flex justify-center gap-2">
+          <Button size="sm" icon={paused ? 'play' : 'pause'} onClick={() => setPaused((p) => !p)}>{paused ? 'Play' : 'Pause'}</Button>
+          <Button size="sm" icon="skip" onClick={() => { setPaused(true); setI((x) => x + 1); }}>Step</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TheoryBlock({ label, text, tone }: { label: string; text: string; tone: 'amber' | 'sky' | 'emerald' }) {
+  const c = { amber: 'border-amber-300 text-amber-300', sky: 'border-sky-300 text-sky-300', emerald: 'border-emerald-300 text-emerald-300' }[tone];
+  return (
+    <div className={`border-l-2 pl-3 ${c.split(' ')[0]}`}>
+      <div className={`text-[11px] font-bold tracking-wider uppercase ${c.split(' ')[1]}`}>{label}</div>
+      <p className="mt-0.5 text-[15px] leading-relaxed text-slate-200">{text}</p>
     </div>
   );
 }
@@ -91,35 +124,49 @@ export function LessonScreen({ id }: { id: string }) {
   const [card, setCard] = useState(0);
   const [zone, setZone] = useState<Zone | null>(null);
   const c = lesson.cards[card];
+  const scene = c.scene ?? (c.demo ? DEMO_CYCLES[c.demo] : { phases: ['receive'] as LessonScene['phases'] });
+  const nav = (
+    <div className="flex gap-2">
+      <Button variant="ghost" icon="back" disabled={card === 0} onClick={() => setCard((x) => x - 1)}>Back</Button>
+      {card < lesson.cards.length - 1 ? (
+        <Button variant="primary" className="ml-auto" icon="right" onClick={() => setCard((x) => x + 1)}>Next</Button>
+      ) : (
+        <Button variant="primary" className="ml-auto" icon="play" onClick={() => go({ name: 'session', config: lessonConfig(lesson.id, focusFromRole(settings.role)), key: Date.now() })}>
+          Practise it ({lesson.practice.count})
+        </Button>
+      )}
+    </div>
+  );
   return (
-    <div className="mx-auto max-w-6xl pb-16">
-      <ScreenHeader title={lesson.title} subtitle={`Level ${level.n} · ${level.title}`} onBack={back} />
-      <div className="grid gap-5 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <Card className="p-4">{c.demo ? <LessonDemo key={c.demo} kind={c.demo} onZone={setZone} /> : <DemoCourt className="mx-auto aspect-[15/14.2] w-full max-w-[480px]" view="half" rotation={0} phase="receive" />}</Card>
+    <div className="mx-auto max-w-6xl pb-24 lg:pb-16">
+      <ScreenHeader title={lesson.title} subtitle={`Level ${level.n} · ${level.title} · ${card + 1}/${lesson.cards.length}`} onBack={back} />
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <Card className="p-3 sm:p-4">
+          <LessonDemo key={`${id}-${card}`} scene={scene} onZone={setZone} />
+        </Card>
         <div className="space-y-3">
-          <Card className="p-5">
-            <div className="mb-2 flex gap-1">
+          <Card className="space-y-4 p-5">
+            <div className="flex gap-1">
               {lesson.cards.map((_, i) => (
-                <div key={i} className={`h-1 flex-1 rounded-full ${i <= card ? 'bg-amber-400' : 'bg-white/10'}`} />
+                <button key={i} onClick={() => setCard(i)} aria-label={`Card ${i + 1}`} className={`h-1.5 flex-1 rounded-full ${i <= card ? 'bg-amber-400' : 'bg-white/10'}`} />
               ))}
             </div>
             <h2 className="font-display text-xl font-bold text-white">{c.title}</h2>
-            <p className="mt-2 leading-relaxed text-slate-300">{c.body}</p>
-            <p className="mt-3 text-xs text-slate-500">Tip: hover or tap any player on the court for their position, role and rules. Tap an empty zone to learn about it.</p>
-            <div className="mt-4 flex gap-2">
-              <Button variant="ghost" icon="back" disabled={card === 0} onClick={() => setCard((x) => x - 1)}>Back</Button>
-              {card < lesson.cards.length - 1 ? (
-                <Button variant="primary" className="ml-auto" icon="right" onClick={() => setCard((x) => x + 1)}>Next</Button>
-              ) : (
-                <Button variant="primary" className="ml-auto" icon="play" onClick={() => go({ name: 'session', config: lessonConfig(lesson.id, focusFromRole(settings.role)), key: Date.now() })}>
-                  Practice ({lesson.practice.count})
-                </Button>
-              )}
-            </div>
+            {c.body && <p className="leading-relaxed text-slate-300">{c.body}</p>}
+            {c.what && <TheoryBlock label="What" text={c.what} tone="amber" />}
+            {c.why && <TheoryBlock label="Why" text={c.why} tone="sky" />}
+            {c.when && <TheoryBlock label="When" text={c.when} tone="emerald" />}
+            {c.cue && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-300/10 p-3 text-sm font-semibold text-amber-100">
+                <Icon name="spark" className="h-4 w-4 shrink-0 text-amber-300" /> {c.cue}
+              </div>
+            )}
+            <div className="hidden lg:block">{nav}</div>
           </Card>
           {zone && <ZonePanel side="home" zone={zone} onClose={() => setZone(null)} />}
         </div>
       </div>
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">{nav}</div>
     </div>
   );
 }

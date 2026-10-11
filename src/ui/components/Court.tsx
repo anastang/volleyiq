@@ -5,6 +5,7 @@ import type { BallSeg, SideScene } from '../../engine/scenarios';
 import { playerById, roleTag, roleWord } from '../../engine/systems';
 import { ROLE_INFO } from '../../engine/types';
 import { useBallPath, useTweenPositions, type Playback } from '../anim';
+import { usePhone } from '../hooks';
 
 export interface Ghost {
   id: string;
@@ -85,6 +86,17 @@ export interface CourtProps {
 const VB_FULL = { x: -3, y: -3.4, w: 15, h: 24.8 };
 const VB_HALF = { x: -3, y: 7.2, w: 15, h: 14.2 };
 
+/** The court's viewBox. Phones crop most of the side free zone so players render larger. */
+export function courtBox(view: 'full' | 'half', phone: boolean) {
+  const b = view === 'half' ? VB_HALF : VB_FULL;
+  return phone ? { ...b, x: -1.3, w: 11.9 } : b;
+}
+/** CSS aspect-ratio / max-size style for a court container. */
+export function courtStyle(view: 'full' | 'half', phone: boolean, maxVh = 78) {
+  const b = courtBox(view, phone);
+  return { aspectRatio: `${b.w} / ${b.h}`, maxHeight: `${maxVh}vh`, maxWidth: `calc(${maxVh}vh * ${b.w / b.h})` };
+}
+
 function useAnimatedBox(target: typeof VB_FULL, reduced: boolean) {
   const [box, setBox] = useState(target);
   const ref = useRef(box);
@@ -106,7 +118,7 @@ function useAnimatedBox(target: typeof VB_FULL, reduced: boolean) {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target.y, target.h, reduced]);
+  }, [target.x, target.y, target.w, target.h, reduced]);
   return box;
 }
 
@@ -267,18 +279,19 @@ type LabelSlot = 'below' | 'above' | 'left' | 'right';
 const labelOffset = (k: LabelSlot, w: number) =>
   k === 'below' ? { x: 0, y: 0.74 } : k === 'above' ? { x: 0, y: -0.7 } : { x: (k === 'right' ? 1 : -1) * (0.5 + w / 2), y: 0.1 };
 
-function labelSlots(points: { id: string; p: Vec; w: number; noAbove?: boolean }[]): Record<string, LabelSlot> {
+function labelSlots(points: { id: string; p: Vec; w: number; noAbove?: boolean }[], ks = 1): Record<string, LabelSlot> {
   const out: Record<string, LabelSlot> = {};
   const placed: { x: number; y: number }[] = [];
   for (const { id, p, w, noAbove } of points) {
     let best: LabelSlot = 'below';
     let bestScore = Infinity;
-    const offs = { below: labelOffset('below', w), above: labelOffset('above', w), right: labelOffset('right', w), left: labelOffset('left', w) };
+    const sc = (o: Vec) => ({ x: o.x * ks, y: o.y * ks });
+    const offs = { below: sc(labelOffset('below', w)), above: sc(labelOffset('above', w)), right: sc(labelOffset('right', w)), left: sc(labelOffset('left', w)) };
     for (const k of (Object.keys(offs) as LabelSlot[]).filter((k) => !(noAbove && k === 'above'))) {
       const l = { x: p.x + offs[k].x, y: p.y + offs[k].y };
       let s = k === 'below' ? 0 : 0.3;
-      for (const q of points) if (q.id !== id) s += Math.max(0, 0.9 - Math.hypot(q.p.x - l.x, q.p.y - l.y)) * 3;
-      for (const q of placed) s += Math.max(0, 0.8 - Math.hypot(q.x - l.x, q.y - l.y)) * 2;
+      for (const q of points) if (q.id !== id) s += Math.max(0, 0.9 * ks - Math.hypot(q.p.x - l.x, q.p.y - l.y)) * 3;
+      for (const q of placed) s += Math.max(0, 0.8 * ks - Math.hypot(q.x - l.x, q.y - l.y)) * 2;
       if (s < bestScore) {
         bestScore = s;
         best = k;
@@ -296,7 +309,10 @@ export function Court(props: CourtProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [hover, setHover] = useState<{ side: Side; id: string } | null>(null);
   const dragSet = useMemo(() => new Set(dragId ? [dragId] : []), [dragId]);
-  const box = useAnimatedBox(view === 'half' ? VB_HALF : VB_FULL, playback.reduced);
+  const phone = usePhone();
+  /** Marker scale: bigger players, labels and tap targets on phones. */
+  const k = phone ? 1.3 : 1;
+  const box = useAnimatedBox(courtBox(view, phone), playback.reduced);
 
   const homeOC = onCourt(home.team, home.rotation, home.serving);
   const awayOC = onCourt(away.team, away.rotation, away.serving);
@@ -356,7 +372,7 @@ export function Court(props: CourtProps) {
   const homePts = homeOC.map((o) => ({ id: o.playerId, p: H(homeT.pos[o.playerId] ?? home.positions[o.playerId] ?? { x: 4.5, y: 4.5 }) }));
   const labelText = (id: string) => (props.labels === 'short' ? roleTag(home.team, home.rotation, id) : roleWord(home.team, home.rotation, id));
   const labelW = (id: string) => Math.max(0.72, labelText(id).length * 0.13 + 0.28);
-  const slots = labelSlots(homePts.map((x) => ({ ...x, w: labelW(x.id), noAbove: x.id === props.meId })));
+  const slots = labelSlots(homePts.map((x) => ({ ...x, w: labelW(x.id), noAbove: x.id === props.meId })), k);
   const violIds = new Set((overlays.violations ?? []).flat());
 
   const tipPos = hover ? (hover.side === 'home' ? homePts.find((x) => x.id === hover.id)?.p : (() => {
@@ -370,14 +386,14 @@ export function Court(props: CourtProps) {
         <svg
           ref={svgRef}
           viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
-          className="block h-full w-full touch-none"
+          className="block h-full w-full"
           role="img"
           aria-label={props.ariaLabel ?? 'Volleyball court'}
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           onClick={onBackground}
-          style={{ maxHeight: 'inherit' }}
+          style={{ maxHeight: 'inherit', touchAction: dragId ? 'none' : 'pan-y pinch-zoom' }}
         >
           <MemoBase zones={overlays.zones} zoneNumbers={overlays.zoneNumbers} awayZones={overlays.awayZones} zoneHighlight={overlays.zoneHighlight} zonePulse={overlays.zonePulse} compact={props.compact} />
 
@@ -487,7 +503,7 @@ export function Court(props: CourtProps) {
             return (
               <g
                 key={o.playerId}
-                transform={`translate(${p.x} ${p.y})`}
+                transform={`translate(${p.x} ${p.y}) scale(${k})`}
                 onPointerDown={(e) => onPointerDownPlayer(e, 'away', o.playerId)}
                 onPointerEnter={() => setHover({ side: 'away', id: o.playerId })}
                 onPointerLeave={() => setHover(null)}
@@ -527,15 +543,16 @@ export function Court(props: CourtProps) {
             return (
               <g
                 key={o.playerId}
-                transform={`translate(${p.x} ${p.y})`}
+                transform={`translate(${p.x} ${p.y}) scale(${k})`}
                 onPointerDown={(e) => onPointerDownPlayer(e, 'home', o.playerId)}
                 onPointerEnter={() => setHover({ side: 'home', id: o.playerId })}
                 onPointerLeave={() => setHover(null)}
                 onClick={(e) => e.stopPropagation()}
-                style={{ cursor: drag ? (dragId === o.playerId ? 'grabbing' : 'grab') : 'pointer' }}
+                style={{ cursor: drag ? (dragId === o.playerId ? 'grabbing' : 'grab') : 'pointer', touchAction: drag ? 'none' : undefined }}
                 role="button"
                 aria-label={`#${pl.number} ${pl.name}, ${ROLE_INFO[pl.role].name}, position ${o.zone}`}
               >
+                {drag && <circle r={0.85} fill="transparent" />}
                 {me && <circle r={0.72} fill="none" stroke="#fde047" strokeWidth={0.1} className={playback.reduced ? undefined : 'vq-pulse'} />}
                 {(focus || sel) && <circle r={0.66} fill={sel ? '#fde047' : color} opacity={0.35} filter="url(#vq-glow)" className={playback.reduced ? undefined : 'vq-breathe'} />}
                 {bad && <circle r={0.6} fill="none" stroke="#f87171" strokeWidth={0.08} className="vq-pulse" />}
@@ -582,7 +599,7 @@ export function Court(props: CourtProps) {
             const w = Math.max(0.9, b.text.length * 0.15 + 0.35);
             const up = (b.side ?? 'home') === 'home' && b.id === props.meId ? 1.75 : 1.05;
             return (
-              <g key={b.id + i} transform={`translate(${p.x} ${p.y - up})`} pointerEvents="none" className="vq-pop">
+              <g key={b.id + i} transform={`translate(${p.x} ${p.y - up * k}) scale(${k})`} pointerEvents="none" className="vq-pop">
                 <rect x={-w / 2} y={-0.24} width={w} height={0.44} rx={0.2} fill="#ffffff" filter="url(#vq-shadow)" />
                 <path d="M -0.08 0.19 L 0 0.34 L 0.08 0.19 z" fill="#ffffff" />
                 <text y={0.08} textAnchor="middle" fontSize={0.24} fontWeight={800} fill="#0b1220">

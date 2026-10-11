@@ -304,7 +304,6 @@ export function computePlan(ctx: TeamCtx, sit: Situation): TacticalPlan {
   const notes: string[] = [];
   const role = (id: string) => playerById(team, id).role;
   const front = (id: string) => isFrontZone(oc.find((o) => o.playerId === id)!.zone);
-  const zoneOf = (id: string) => oc.find((o) => o.playerId === id)!.zone;
   const ST = setTarget(team.systemId);
   const opts = attackOptions(team, rotation, serving);
   const laneOf = (id: string) => opts.find((o) => o.playerId === id)?.lane;
@@ -479,9 +478,10 @@ export function computePlan(ctx: TeamCtx, sit: Situation): TacticalPlan {
             };
           }
         } else {
-          const z = zoneOf(id);
+          // Ready spot by defensive area (not zone), so it never sits in a hitter's approach lane.
+          const sl = slots[id];
           targets[id] = {
-            pos: z === 5 || z === 4 ? v(2.6, 5.3) : z === 6 ? v(4.5, 5.6) : v(6.4, 5.3),
+            pos: sl === 'LB' || sl === 'LF' ? v(2.4, 5.2) : sl === 'RB' || sl === 'RF' ? v(6.6, 5.2) : v(4.5, 5.4),
             radius: 1.6,
             duty: 'Transition to coverage',
             why: 'You are not attacking this ball. Move up behind the hitters into a low, ready position for attack coverage.',

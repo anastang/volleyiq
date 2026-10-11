@@ -45,7 +45,7 @@ export function RotationTrainerScreen() {
   return (
     <div className="mx-auto max-w-6xl pb-16">
       <ScreenHeader title="Rotation Trainer" subtitle="Identify · arrange · service contact · release · respond · review" onBack={back} />
-      <div className="grid gap-6 px-4 sm:px-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
           <Section title="Offensive system"><SystemPicker value={sys} onChange={setSys} /></Section>
           <Section title="Who are you training?">

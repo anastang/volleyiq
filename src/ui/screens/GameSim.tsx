@@ -6,8 +6,9 @@ import { makeRng } from '../../engine/rng';
 import { onCourt } from '../../engine/rotation';
 import { rotationalSpot, type PlaceScenario } from '../../engine/scenarios';
 import { activeSetterId, playerById, roleWord } from '../../engine/systems';
-import { Court, type CourtOverlays } from '../components/Court';
-import { Button, Card, Icon, ScreenHeader, Segmented } from '../components/ui';
+import { Court, courtStyle, type CourtOverlays } from '../components/Court';
+import { usePhone } from '../hooks';
+import { Button, Card, Icon, ScreenHeader, Segmented, Toggle } from '../components/ui';
 import { CourtLegend, YouCard } from '../components/YouCard';
 import { ROLE_CHOICES, useStore, type RoleChoice } from '../store';
 import { ROLE_INFO } from '../../engine/types';
@@ -85,9 +86,16 @@ function coachLine(ev: Evaluation): { tone: 'good' | 'ok' | 'bad' | 'foul'; titl
 }
 
 export function GameSimScreen() {
-  const { settings, genOptions, back, record, patchProgress, reduced, ruleset } = useStore();
+  const { settings, genOptions, back, record, patchProgress, reduced, ruleset, update } = useStore();
   const [role, setRole] = useState<RoleChoice>(settings.role === 'ALL' ? 'S' : settings.role);
   const [target, setTarget] = useState(15);
+  /** Optional shot clock — off unless the player turns it on. */
+  const [shotClock, setShotClock] = useState(false);
+  const [speed, setSpeed] = useState(settings.speed > 1 ? 1 : settings.speed);
+  /** Where everyone stood when this moment started (for "Try again"). */
+  const momentStart = useRef<Record<string, Vec>>({});
+  /** Only the first attempt at each moment counts toward progress. */
+  const recordedMoment = useRef('');
   const [scrim, setScrim] = useState<Scrimmage | null>(null);
   const [run, setRun] = useState<RallyRun | null>(null);
   const [stepNo, setStepNo] = useState(0);
@@ -104,10 +112,20 @@ export function GameSimScreen() {
   const [decisions, setDecisions] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const rng = useRef(makeRng());
+  /** Positions on screen when the current moment began (replay starts from here). */
+  const stepFrom = useRef<Record<string, Vec>>({});
+  const posRef = useRef<Record<string, Vec>>({});
+  const [replayN, setReplayN] = useState(0);
+  const [replayFrom, setReplayFrom] = useState<Record<string, Vec> | undefined>(undefined);
+  const [slow, setSlow] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const phone = usePhone();
+  const view = phone ? 'half' : 'full';
 
   const step = run ? run.steps[run.steps.length - 1] : null;
   const sc = step?.scenario as PlaceScenario | undefined;
   const meId = run?.focusIds[0];
+  posRef.current = positions;
   const say = (t: string, icon = 'ball') => setFeed((f) => [{ t, icon }, ...f].slice(0, 7));
 
   const startRallyFor = (s: Scrimmage) => {
@@ -127,10 +145,20 @@ export function GameSimScreen() {
   useEffect(() => {
     if (!step || !sc || !meId) return;
     const start = { ...sc.scene.home.positions, ...sc.start };
-    if (start[meId] && (start[meId].x > 9.4 || start[meId].x < -0.4)) {
+    const n = step.node;
+    const firstOfRally = n.k === 'receive' || n.k === 'serve';
+    const prevMe = posRef.current[meId];
+    if (!firstOfRally && prevMe && !(n.k === 'first' && n.contact === meId)) {
+      // Keep the user where they put themselves — the play continues from there.
+      start[meId] = prevMe;
+    } else if (start[meId] && (start[meId].x > 9.4 || start[meId].x < -0.4)) {
       const z = onCourt(sc.scene.home.team, sc.scene.home.rotation, sc.scene.home.serving).find((o) => o.playerId === meId)?.zone;
       if (z) start[meId] = rotationalSpot(z);
     }
+    stepFrom.current = firstOfRally ? start : { ...start, ...posRef.current, [meId]: posRef.current[meId] ?? start[meId] };
+    setReplayFrom(undefined);
+    setSlow(false);
+    momentStart.current = start;
     setPositions(start);
     setAwayPos(sc.scene.away.positions);
     setBallPath(sc.scene.ball);
@@ -154,9 +182,9 @@ export function GameSimScreen() {
   // Prep timer at competitive level.
   useEffect(() => {
     if (stage !== 'move') return setTimeLeft(null);
-    if (settings.level !== 'competitive') return;
+    if (!shotClock) return setTimeLeft(null);
     setTimeLeft(12);
-  }, [stage, settings.level]);
+  }, [stage, shotClock]);
   useEffect(() => {
     if (timeLeft === null || stage !== 'move') return;
     if (timeLeft <= 0) return lockIn();
@@ -170,20 +198,39 @@ export function GameSimScreen() {
     setEv(e);
     setStage('result');
     const score = e.verdict === 'illegal' ? 0 : e.score;
-    setDecisions((d) => [...d, score]);
-    record({ t: Date.now(), category: sc.category, skills: sc.skills, score, verdict: e.verdict, systemId: sc.systemId, rotation: sc.rotation, role, errorTags: e.errorTags });
+    const key = `${stepNo}-${run?.steps.length}`;
+    if (recordedMoment.current !== key) {
+      recordedMoment.current = key;
+      setDecisions((d) => [...d, score]);
+      record({ t: Date.now(), category: sc.category, skills: sc.skills, score, verdict: e.verdict, systemId: sc.systemId, rotation: sc.rotation, role, errorTags: e.errorTags });
+    }
+  }
+
+  /** Redo this moment: put everyone back and let the player move again. */
+  function tryAgain() {
+    setEv(null);
+    setWhy(false);
+    setHint(false);
+    setSlow(false);
+    setPositions({ ...momentStart.current });
+    setStage('move');
   }
 
   function continueAfter() {
     if (!sc || !run) return;
     setWhy(false);
-    if (sc.after && !(ev?.verdict === 'illegal' && sc.objective.legality === 'receivingFormation')) {
-      setPositions((p) => ({ ...p, ...sc.after!.home }));
-      setAwayPos(sc.after.away);
-      setBallPath(sc.after.ball);
-      setBallKey((k) => k + 1);
-      setStage('after');
-    } else finishStep();
+    finishStep();
+  }
+
+  /** Re-run the current moment (teammates' movement + ball) in slow motion. */
+  function replay() {
+    if (!step || !meId) return;
+    setReplayFrom({ ...stepFrom.current });
+    setReplayN((x) => x + 1);
+    setBallKey((k) => k + 1);
+    setSlow(true);
+    setPaused(false);
+    setBubbles(bubblesFor(step, meId));
   }
 
   function finishStep() {
@@ -205,17 +252,10 @@ export function GameSimScreen() {
     }
   }
 
-  // Auto-continue after a good decision (players read the bad ones).
-  useEffect(() => {
-    if (stage !== 'result' || why || !ev) return;
-    if (ev.verdict !== 'recommended' && ev.verdict !== 'acceptable') return;
-    const t = setTimeout(continueAfter, reduced ? 900 : 2200);
-    return () => clearTimeout(t);
-  }); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onBallDone = () => {
+    setSlow(false);
     if (stage === 'watch') setStage('move');
-    else if (stage === 'after') setTimeout(finishStep, 250);
   };
 
   const overlays: CourtOverlays = useMemo(() => {
@@ -260,6 +300,9 @@ export function GameSimScreen() {
             <div className="mb-2 text-xs font-bold tracking-wider text-slate-400 uppercase">Match length</div>
             <Segmented value={target} onChange={setTarget} options={[{ value: 7, label: 'Quick (to 7)' }, { value: 15, label: 'To 15' }, { value: 25, label: 'Full set (25)' }]} />
           </div>
+          <Card className="p-4">
+            <Toggle checked={shotClock} onChange={setShotClock} label={<span><strong className="text-white">Shot clock</strong> <span className="text-slate-400">— 12 seconds per move, then it locks in for you. Off = take as long as you like.</span></span>} />
+          </Card>
           <Button
             variant="primary"
             size="lg"
@@ -290,27 +333,41 @@ export function GameSimScreen() {
       <ScreenHeader title="Game Simulator" onBack={back} />
       <div className="px-4 sm:px-6">
         {/* Scoreboard */}
-        <div className="mb-3 flex items-center justify-center gap-4 rounded-2xl bg-slate-900/70 p-3 ring-1 ring-white/8">
+        <div className="mb-3 flex items-center justify-center gap-4 rounded-2xl bg-slate-900/70 p-2 ring-1 ring-white/8 sm:p-3">
           <div className="text-right">
             <div className="text-xs text-slate-400">Your team {m.serving === 'home' && <span className="text-amber-300">● serve</span>}</div>
-            <div className="font-display text-3xl font-extrabold text-white tabular-nums">{m.score.home}</div>
+            <div className="font-display text-2xl font-extrabold text-white tabular-nums sm:text-3xl">{m.score.home}</div>
           </div>
           <div className="text-slate-600">–</div>
           <div>
             <div className="text-xs text-slate-400">{m.serving === 'away' && <span className="text-amber-300">serve ● </span>}Opponent</div>
-            <div className="font-display text-3xl font-extrabold text-white tabular-nums">{m.score.away}</div>
+            <div className="font-display text-2xl font-extrabold text-white tabular-nums sm:text-3xl">{m.score.away}</div>
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0">
             {sc && homeScene && meId && (
-              <div className="relative mx-auto w-full" style={{ aspectRatio: '15 / 24.8', maxHeight: '76vh', maxWidth: 'calc(76vh * 0.605)' }}>
+              <div className="mx-auto mb-2 flex max-w-full flex-wrap items-center justify-center gap-2">
+                <button
+                  onClick={() => setPaused((p) => !p)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white/8 px-3 text-xs font-bold text-white ring-1 ring-white/10 hover:bg-white/14"
+                  aria-label={paused ? 'Resume the play' : 'Pause the play'}
+                >
+                  <Icon name={paused ? 'play' : 'pause'} className="h-4 w-4" /> {paused ? 'Resume' : 'Pause'}
+                </button>
+                <span className="text-[11px] font-semibold text-slate-400">Speed</span>
+                <Segmented size="sm" value={speed} onChange={(v) => { setSpeed(v); update({ speed: v }); }} options={[{ value: 0.25, label: '¼×' }, { value: 0.5, label: '½×' }, { value: 1, label: '1×' }, { value: 1.5, label: '1½×' }]} />
+              </div>
+            )}
+            {sc && homeScene && meId && (
+              <div className="relative mx-auto w-full" style={courtStyle(view, phone, 76)}>
                 <Court
                   className="h-full w-full"
                   home={homeScene}
                   away={{ ...sc.scene.away, positions: awayPos }}
-                  animKey={`${stepNo}-${run?.steps.length}`}
+                  animKey={`${stepNo}-${run?.steps.length}-${replayN}`}
+                  homeFrom={replayFrom}
                   ballPath={ballPath}
                   ballKey={`gs-${ballKey}`}
                   ballRest={sc.scene.ballRest}
@@ -319,12 +376,25 @@ export function GameSimScreen() {
                   selectedId={stage === 'move' ? meId : null}
                   onMove={(id, p) => setPositions((x) => ({ ...x, [id]: p }))}
                   overlays={overlays}
-                  playback={{ speed: settings.speed, paused: why, reduced }}
+                  playback={{ speed: slow ? speed * 0.5 : speed, paused: why || paused, reduced }}
                   meId={meId}
                   labels={settings.labels}
                   zoneBadges={settings.zoneBadges}
                   bubbles={bubbles}
+                  view={view}
                 />
+                {(stage === 'move' || stage === 'result') && sc.scene.ball.length > 0 && (
+                  <button
+                    onClick={replay}
+                    className="absolute top-2 right-2 z-10 inline-flex items-center gap-1.5 rounded-full bg-slate-950/85 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/20 backdrop-blur hover:bg-slate-900"
+                    aria-label="Replay this play in slow motion"
+                  >
+                    <Icon name="replay" className="h-4 w-4" /> Replay
+                  </button>
+                )}
+                {slow && (
+                  <div className="pointer-events-none absolute top-2 left-2 z-10 rounded-full bg-sky-400/90 px-2.5 py-1 text-[11px] font-bold text-slate-950">Slow-mo</div>
+                )}
                 {stage === 'move' && (
                   <div className="vq-pop pointer-events-none absolute inset-x-0 top-2 flex justify-center">
                     <div className="rounded-full bg-amber-300 px-4 py-1.5 text-sm font-extrabold text-slate-950 shadow-lg">
@@ -357,7 +427,7 @@ export function GameSimScreen() {
           <div className="space-y-3">
             {homeScene && meId && <YouCard scene={homeScene} id={meId} />}
 
-            <div className="fixed inset-x-3 bottom-3 z-30 lg:static lg:inset-auto">
+            <div className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 lg:static lg:inset-auto">
             {scrim.over ? (
               <Card className="p-5 text-center">
                 <Icon name="trophy" className="mx-auto mb-2 h-9 w-9 text-amber-300" />
@@ -387,8 +457,10 @@ export function GameSimScreen() {
                 <p className={`font-display text-lg font-bold ${line.tone === 'good' ? 'text-emerald-200' : line.tone === 'ok' ? 'text-sky-200' : line.tone === 'bad' ? 'text-amber-200' : 'text-rose-200'}`}>{line.title}</p>
                 {line.text && <p className="text-sm text-slate-200">{line.text}</p>}
                 {why && sc && <p className="rounded-lg bg-white/5 p-2 text-xs whitespace-pre-line text-slate-300">{sc.explanation}</p>}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {!why && <Button size="sm" variant="ghost" icon="info" onClick={() => setWhy(true)}>Why?</Button>}
+                  {sc && sc.scene.ball.length > 0 && <Button size="sm" variant="ghost" icon="replay" onClick={replay}>Watch again</Button>}
+                  <Button size="sm" variant="ghost" icon="refresh" onClick={tryAgain}>Try again</Button>
                   <Button size="sm" variant="primary" className="ml-auto" icon="right" onClick={continueAfter}>Keep playing</Button>
                 </div>
               </Card>
